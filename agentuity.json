@@ -10,5 +10,44 @@
       "disk": "500Mi"
     }
   },
-  "region": "use"
+  "region": "use",
+  "template": {
+    "source": "github.com/potofpie/test-deploy-now",
+    "requirements": {
+      "resources": [
+        {
+          "type": "database",
+          "envVar": "DATABASE_URL",
+          "description": "PostgreSQL connection string",
+          "defaultName": "main_db"
+        },
+        {
+          "type": "queue",
+          "envVar": "TASK_QUEUE",
+          "description": "Queue for background job processing",
+          "defaultName": "task_queue",
+          "queueType": "worker"
+        },
+      ],
+      "env": [
+        {
+          "key": "AGENTUITY_AUTH_SECRET",
+          "required": true,
+          "secret": true,
+          "description": "Better Auth secret - generate with: `openssl rand -base64 32`"
+        },
+        {
+          "key": "GOOGLE_CLIENT_ID",
+          "required": false,
+          "description": "Without these, the app uses email/password auth"
+        },
+        {
+          "key": "GOOGLE_CLIENT_SECRET",
+          "required": false,
+          "secret": true,
+          "description": "Google OAuth client secret"
+        }
+      ]
+    }
+  }
 }
