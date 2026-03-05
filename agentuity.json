@@ -27,7 +27,7 @@
           "description": "Queue for background job processing",
           "defaultName": "task_queue",
           "queueType": "worker"
-        },
+        }
       ],
       "env": [
         {
