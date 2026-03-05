@@ -1,44 +1,112 @@
-/**
- * API routes for the translation agent.
- * Routes handle state operations (get/clear history); the agent handles translation.
- */
-
-import { createRouter, validator } from '@agentuity/runtime';
-import translate, { AgentOutput, type HistoryEntry } from '../agent/translate';
+import { mountAuthRoutes } from '@agentuity/auth';
+import { createRouter } from '@agentuity/runtime';
+import { and, desc, eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { auth, authMiddleware } from '../auth';
+import { db } from '../db';
+import { task } from '../db/schema';
 
 const api = createRouter();
 
-// State subset for history endpoints (derived from AgentOutput)
-export const StateSchema = AgentOutput.pick(['history', 'threadId', 'translationCount']);
-
-// Call the agent to translate text
-api.post('/translate', translate.validator(), async (c) => {
-	const data = c.req.valid('json');
-
-	return c.json(await translate.run(data));
+// Temporary compatibility export for stale generated route types.
+export const StateSchema = z.object({
+	history: z.array(z.any()),
+	threadId: z.string().nullable().optional(),
+	translationCount: z.number(),
 });
 
-// Retrieve translation history
-api.get('/translate/history', validator({ output: StateSchema }), async (c) => {
-	// Routes use c.var.* for Agentuity services (thread, kv, logger); agents use ctx.* directly
-	const history = (await c.var.thread.state.get<HistoryEntry[]>('history')) ?? [];
+api.on(['GET', 'POST'], '/auth/*', mountAuthRoutes(auth));
 
-	return c.json({
-		history,
-		threadId: c.var.thread.id,
-		translationCount: history.length,
-	});
+api.get('/tasks', authMiddleware, async (c) => {
+	const user = await c.var.auth.getUser();
+
+	if (!user) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+
+	const tasks = await db
+		.select()
+		.from(task)
+		.where(eq(task.userId, user.id))
+		.orderBy(desc(task.createdAt));
+
+	return c.json({ tasks });
 });
 
-// Clear translation history
-api.delete('/translate/history', validator({ output: StateSchema }), async (c) => {
-	await c.var.thread.state.delete('history');
+api.post('/tasks', authMiddleware, async (c) => {
+	const user = await c.var.auth.getUser();
 
-	return c.json({
-		history: [],
-		threadId: c.var.thread.id,
-		translationCount: 0,
-	});
+	if (!user) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+
+	const body = await c.req.json<{ title?: string }>();
+	const title = body.title?.trim();
+
+	if (!title) {
+		return c.json({ error: 'Title is required' }, 400);
+	}
+
+	const [newTask] = await db
+		.insert(task)
+		.values({
+			title,
+			userId: user.id,
+		})
+		.returning();
+
+	return c.json({ task: newTask }, 201);
+});
+
+api.patch('/tasks/:id', authMiddleware, async (c) => {
+	const user = await c.var.auth.getUser();
+
+	if (!user) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+
+	const id = c.req.param('id');
+	const body = await c.req.json<{ completed?: boolean }>();
+
+	if (typeof body.completed !== 'boolean') {
+		return c.json({ error: 'completed must be a boolean' }, 400);
+	}
+
+	const [updatedTask] = await db
+		.update(task)
+		.set({
+			completed: body.completed,
+			updatedAt: new Date(),
+		})
+		.where(and(eq(task.id, id), eq(task.userId, user.id)))
+		.returning();
+
+	if (!updatedTask) {
+		return c.json({ error: 'Task not found' }, 404);
+	}
+
+	return c.json({ task: updatedTask });
+});
+
+api.delete('/tasks/:id', authMiddleware, async (c) => {
+	const user = await c.var.auth.getUser();
+
+	if (!user) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+
+	const id = c.req.param('id');
+
+	const [deletedTask] = await db
+		.delete(task)
+		.where(and(eq(task.id, id), eq(task.userId, user.id)))
+		.returning({ id: task.id });
+
+	if (!deletedTask) {
+		return c.json({ error: 'Task not found' }, 404);
+	}
+
+	return c.json({ success: true });
 });
 
 export default api;

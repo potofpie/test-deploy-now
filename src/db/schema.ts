@@ -12,16 +12,27 @@ export * from '@agentuity/auth/schema';
 // =============================================================================
 // Application Tables
 // =============================================================================
-// Add your own Drizzle tables here. They will be included in migrations
-// alongside the auth tables.
-//
-// Example:
-// import { pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-//
-// export const post = pgTable('post', {
-//   id: text('id').primaryKey(),
-//   title: text('title').notNull(),
-//   content: text('content'),
-//   authorId: text('authorId').notNull().references(() => user.id),
-//   createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
-// });
+
+import { user } from '@agentuity/auth/schema';
+import { relations } from 'drizzle-orm';
+import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+
+export const task = pgTable('task', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	title: text('title').notNull(),
+	completed: boolean('completed').notNull().default(false),
+	userId: text('userId')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp('updatedAt', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const taskRelations = relations(task, ({ one }) => ({
+	user: one(user, {
+		fields: [task.userId],
+		references: [user.id],
+	}),
+}));
