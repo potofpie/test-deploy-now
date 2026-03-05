@@ -9,7 +9,7 @@
 		"build": "agentuity build",
 		"dev": "agentuity dev",
 		"start": "bun .agentuity/app.js",
-		"predeploy": "bun run db:migrate",
+		"predeploy": "bun i && bun run db:migrate",
 		"deploy": "agentuity deploy",
 		"typecheck": "bunx tsc --noEmit",
 		"db:generate": "drizzle-kit generate",
