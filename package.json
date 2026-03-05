@@ -12,10 +12,10 @@
 		"predeploy": "bun run db:migrate",
 		"deploy": "agentuity deploy",
 		"typecheck": "bunx tsc --noEmit",
-		"db:generate": "bunx drizzle-kit generate",
-		"db:migrate": "bunx drizzle-kit migrate",
-		"db:push": "bunx drizzle-kit push",
-		"db:studio": "bunx drizzle-kit studio"
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:push": "drizzle-kit push",
+		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
 		"@agentuity/auth": "^1.0.33",
